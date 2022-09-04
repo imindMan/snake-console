@@ -2,6 +2,7 @@
 #include <conio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 // initialize some structure and functions
 
@@ -16,18 +17,7 @@ struct Screen generate_screen(int width, int height);
 
 void display(struct Screen *scr);
 
-void draw_on_the_screen(struct Screen *scr, int x, int y, char content)
-{
-
-	if (scr->display[(y * (scr->width) + x)] == '\n')
-	{
-		scr->display[(y * (scr->width) + x) - 1] = content;
-	}
-	else
-	{
-		scr->display[(y * (scr->width) + x)] = content;
-	}
-}
+void draw_on_the_screen(struct Screen *scr, int x, int y, char content);
 
 struct Snake
 {
@@ -35,70 +25,51 @@ struct Snake
 	int start_y;
 	int blocks;
 	char *direction;
+	int col_or_not;
 };
 
 void get_snake(struct Snake *snake, int start_x, int start_y, int blocks);
-void draw_snake(struct Snake *snake, struct Screen *screen, int col_or_not)
-{
-
-	if (col_or_not == 0)
-	{
-		int x = snake->start_x;
-		for (int i = 0; i < snake->blocks; i++)
-		{
-			draw_on_the_screen(screen, x, snake->start_y, 's');
-			x += 1;
-		};
-	}
-	else
-	{
-		int y = snake->start_y;
-		for (int i = 0; i < snake->blocks; i++)
-		{
-			draw_on_the_screen(screen, snake->start_x, y, 's');
-			y += 1;
-		}
-	}
-}
+void draw_snake(struct Snake *snake, struct Screen *screen, int col_or_not);
 int move_snake(struct Snake *snake, struct Screen *screen, char *direction);
-void delete_snake(struct Snake *snake, struct Screen *screen, int col_or_not)
-{
+void delete_snake(struct Snake *snake, struct Screen *screen, int col_or_not);
 
-	if (col_or_not == 0)
-	{
-		int x = snake->start_x;
-		for (int i = 0; i < snake->blocks; i++)
-		{
-			draw_on_the_screen(screen, x, snake->start_y, ' ');
-			x += 1;
-		};
-	}
-	else if (col_or_not == 1)
-	{
-		int y = snake->start_y;
-		for (int i = 0; i < snake->blocks; i++)
-		{
-			draw_on_the_screen(screen, snake->start_x, y, ' ');
-			y += 1;
-		}
-	}
-}
+struct Food
+{
+	int x;
+	int y;
+};
+
+void get_food(struct Food *food, int x, int y);
+void draw_food(struct Food *food, struct Screen *screen);
+void delete_food(struct Food *food, struct Screen *screen);
+
+int check_collision(struct Food *food, struct Snake *snake);
 // The entry part
 int main(int argc, char *argv)
 {
 	system("cls");
 	struct Screen scr;
 	struct Snake snake;
+	struct Food food;
 	int default_side = 0;
 	int x = 1;
 	int y = 0;
+	int blocks = 1;
 	scr = generate_screen(100, 30);
-	get_snake(&snake, x, y, 4);
+	get_snake(&snake, x, y, blocks);
+
+	srand(time(NULL));
+	int food_x = rand() % 70;
+	int food_y = rand() % 10;
+	get_food(&food, food_x, food_y);
+	int score = 0;
 
 	for (;;)
 	{
 		display(&scr);
 		draw_snake(&snake, &scr, default_side);
+		draw_food(&food, &scr);
+
 		if (kbhit() == 1)
 		{
 			char c;
@@ -123,10 +94,31 @@ int main(int argc, char *argv)
 			else if (c == 100)
 			{
 				a = move_snake(&snake, &scr, "right");
+			} // key 'c' pressed
+			else if (c == 99)
+			{
+				break;
 			}
 			default_side = a;
+			snake.col_or_not = a;
+		}
+		if (check_collision(&food, &snake) == 1)
+		{
+			score++;
+			delete_food(&food, &scr);
+			food_x = rand() % 70;
+			food_y = rand() % 10;
+			get_food(&food, food_x, food_y);
+			delete_snake(&snake, &scr, default_side);
+			blocks++;
+			get_snake(&snake, x, y, blocks);
+		}
+		else
+		{
+			continue;
 		}
 	}
+	printf("Your score is: %d\n", score);
 }
 
 // Definition
@@ -177,6 +169,18 @@ struct Screen generate_screen(int width, int height)
 
 	return sam_scr;
 }
+void draw_on_the_screen(struct Screen *scr, int x, int y, char content)
+{
+
+	if (scr->display[(y * (scr->width) + x)] == '\n')
+	{
+		scr->display[(y * (scr->width) + x) - 1] = content;
+	}
+	else
+	{
+		scr->display[(y * (scr->width) + x)] = content;
+	}
+}
 
 void display(struct Screen *scr)
 {
@@ -190,6 +194,30 @@ void get_snake(struct Snake *snake, int start_x, int start_y, int blocks)
 	snake->start_y = start_y;
 	snake->blocks = blocks;
 	snake->direction = "right";
+	snake->col_or_not = 0;
+}
+
+void draw_snake(struct Snake *snake, struct Screen *screen, int col_or_not)
+{
+
+	if (col_or_not == 0)
+	{
+		int x = snake->start_x;
+		for (int i = 0; i < snake->blocks; i++)
+		{
+			draw_on_the_screen(screen, x, snake->start_y, 's');
+			x += 1;
+		};
+	}
+	else
+	{
+		int y = snake->start_y;
+		for (int i = 0; i < snake->blocks; i++)
+		{
+			draw_on_the_screen(screen, snake->start_x, y, 's');
+			y += 1;
+		}
+	}
 }
 
 int move_snake(struct Snake *snake, struct Screen *screen, char *direction)
@@ -243,7 +271,7 @@ int move_snake(struct Snake *snake, struct Screen *screen, char *direction)
 			{
 				snake->direction = direction;
 				delete_snake(snake, screen, 1);
-				snake->start_y += snake->blocks - 1;
+				snake->start_y -= snake->blocks - 1;
 				draw_snake(snake, screen, 0);
 			}
 		}
@@ -296,7 +324,7 @@ int move_snake(struct Snake *snake, struct Screen *screen, char *direction)
 			{
 				snake->direction = direction;
 				delete_snake(snake, screen, 1);
-				snake->start_y += snake->blocks - 1;
+				snake->start_y -= snake->blocks - 1;
 				draw_snake(snake, screen, 0);
 			}
 		}
@@ -498,6 +526,70 @@ int move_snake(struct Snake *snake, struct Screen *screen, char *direction)
 				snake->start_y--;
 			}
 			draw_snake(snake, screen, 1);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+void delete_snake(struct Snake *snake, struct Screen *screen, int col_or_not)
+{
+
+	if (col_or_not == 0)
+	{
+		int x = snake->start_x;
+		for (int i = 0; i < snake->blocks; i++)
+		{
+			draw_on_the_screen(screen, x, snake->start_y, ' ');
+			x += 1;
+		};
+	}
+	else if (col_or_not == 1)
+	{
+		int y = snake->start_y;
+		for (int i = 0; i < snake->blocks; i++)
+		{
+			draw_on_the_screen(screen, snake->start_x, y, ' ');
+			y += 1;
+		}
+	}
+}
+
+void get_food(struct Food *food, int x, int y)
+{
+	food->x = x;
+	food->y = y;
+}
+void draw_food(struct Food *food, struct Screen *screen)
+{
+	draw_on_the_screen(screen, food->x, food->y, 'f');
+}
+void delete_food(struct Food *food, struct Screen *screen)
+{
+	draw_on_the_screen(screen, food->x, food->y, ' ');
+}
+
+int check_collision(struct Food *food, struct Snake *snake)
+{
+	if (snake->col_or_not == 0)
+	{
+		if ((food->x == snake->start_x + (snake->blocks - 1)) && (food->y == snake->start_y + (snake->blocks - 1)))
+		{
+			return 1;
+		}
+		else if ((food->x == snake->start_x) && (food->y == snake->start_y))
+		{
+			return 1;
+		}
+	}
+	else
+	{
+		if ((food->x == snake->start_x) && (food->y == snake->start_y))
+		{
+			return 1;
+		}
+		else if ((food->x == snake->start_x) && (food->y == snake->start_y + snake->blocks - 1))
+		{
 			return 1;
 		}
 	}
